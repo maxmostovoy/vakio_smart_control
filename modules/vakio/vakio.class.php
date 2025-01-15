@@ -116,16 +116,12 @@ function admin(&$out) {
   $out['MQTT_CLIENT'] = $this->config['MQTT_CLIENT'];
   $out['MQTT_HOST'] = $this->config['MQTT_HOST'];
   $out['MQTT_PORT'] = $this->config['MQTT_PORT'];
-  $out['MQTT_QUERY'] = $this->config['MQTT_QUERY'];
 
   if (!$out['MQTT_HOST']) {
     $out['MQTT_HOST'] = 'localhost';
   }
   if (!$out['MQTT_PORT']) {
     $out['MQTT_PORT'] = '1883';
-  }
-  if (!$out['MQTT_QUERY']) {
-    $out['MQTT_QUERY'] = 'vakio';
   }
 
   $out['MQTT_USERNAME'] = $this->config['MQTT_USERNAME'];
@@ -309,7 +305,7 @@ function api($params) {
     for($i=0;$i<$total;$i++) {
      $property = SQLSelectOne("SELECT * FROM $table WHERE ID='".(int)$properties[$i]['ID']."'");
 	 $device = SQLSelectOne("SELECT * FROM vakio_devices WHERE ID='".(int)$property['DEVICE_ID']."'");
-	 if($device['VAKIO_DEVICE_TYPE'] == 0) return;
+	 if($property['VALUE'] == $value or $device['VAKIO_DEVICE_TYPE'] == 0) return;
 	 else if($device['VAKIO_DEVICE_TYPE'] == 1){
 		if($property['TITLE'] == "state"){
 			if($value == "0" or $value == "off") $com = "off";
@@ -356,10 +352,10 @@ function api($params) {
 		}
 	 }
 	 $topic = $device["VAKIO_DEVICE_MQTT_TOPIC"] . "/" . $property['TITLE'];
-	 addToOperationsQueue('vakio', $topic, $com);
 	 $property['VALUE'] = $value;
 	 $property['UPDATED'] = date('Y-m-d H:i:s');
 	 SQLUpdate($table, $property);
+	 addToOperationsQueue('vakio', $topic, $com);
     }
    }
   }

@@ -3,21 +3,16 @@
 use function PHPSTORM_META\type;
 
 chdir(dirname(__FILE__) . '/../');
-
 include_once("./config.php");
 include_once("./lib/loader.php");
 include_once("./lib/threads.php");
 
 set_time_limit(0);
-// connecting to database
-$db = new mysql(DB_HOST, '', DB_USER, DB_PASSWORD, DB_NAME);
 
 include_once("./load_settings.php");
 include_once(DIR_MODULES . "control_modules/control_modules.class.php");
 
 $ctl = new control_modules();
-
-set_time_limit(0);
 
 include_once(ROOT . "3rdparty/phpmqtt/phpMQTT.php");
 include_once(DIR_MODULES . 'vakio/vakio.class.php');
@@ -36,7 +31,7 @@ $checkEvery=2; // poll every 5 seconds
 if (isset($vakio_module->config["MQTT_CLIENT"])) {
    $client_name = $vakio_module->config['MQTT_CLIENT'];
 } else {
-   $client_name = "majordomo-client-" . random_int(1, 100);
+   $client_name = "majordomo-vakio-client-" . random_int(1, 100);
 }
 
 if (isset($vakio_module->config['MQTT_AUTH'])) {
@@ -87,22 +82,21 @@ for ($i = 0; $i < $total; $i++) {
 $mqtt_client->subscribe($topics, 0);
 $previousMillis = 0;
 
-while ($mqtt_client->proc())
-{
+while ($mqtt_client->proc()){
    $operations = checkOperationsQueue('vakio');
    for ($i=0; $i<count($operations); $i++) {
       $topic = $operations[$i]["DATANAME"];
       $value = $operations[$i]["DATAVALUE"];
+	  echo date("H:i:s")." Send data to ".$topic.": ".$value.PHP_EOL;
       $mqtt_client->publish($topic, $value, 0, true);
    }
    $currentMillis = round(microtime(true) * 10000);
-   if ($currentMillis - $previousMillis > 10000) {
+   if ($currentMillis - $previousMillis > 200000) {
       $previousMillis = $currentMillis;
       setGlobal((str_replace('.php', '', basename(__FILE__))) . 'Run', time(), 1);
 
       if (file_exists('./reboot') || IsSet($_GET['onetime'])) {
          $mqtt_client->close();
-         $db->Disconnect();
          exit;
       }
    }
@@ -110,7 +104,6 @@ while ($mqtt_client->proc())
 
 
 $mqtt_client->close();
-$db->Disconnect(); // closing database connection
 
 /**
  * По полученному топику определяет устройство, которому обновляет поле VAKIO_DEVICE_STATE и привязанные свойства.
@@ -119,6 +112,7 @@ $db->Disconnect(); // closing database connection
  * @return void
  */
 function procmsg($topic, $msg) {
+   echo date("H:i:s")." Receive data from ". $topic.": ".$msg;
    if (!isset($topic) || !isset($msg)) return false;
    $topic_parts = explode("/", $topic);
    $topic_parts_count = count($topic_parts);
@@ -143,6 +137,8 @@ function procmsg($topic, $msg) {
    if($info['VALUE'] != $msg){
       global $vakio_module;
       $vakio_module->setProperty($info, $msg);
+	  echo ". Property updated";
    }
+   echo PHP_EOL;
 }
 
